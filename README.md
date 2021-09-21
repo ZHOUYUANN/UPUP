@@ -59,3 +59,5 @@
 | siteObj.url          | luszy.com |  `logo` 图标站点 url             |
 | siteObj.x          | 0 |  `logo` 图标站点 x 坐标             |
 | siteObj.y          | 50 |  `logo` 图标站点 y 坐标               |
+
+内置一个更新函数 `refresh()` 可以传入参数合并之前的参数更新画布内容。
