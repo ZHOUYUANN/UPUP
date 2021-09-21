@@ -12,7 +12,7 @@
 
 ## UPUP 使用
 
-首先引入游戏框架 `upup.js`
+首先引入插件 `upup.js`
 
 ```javascript
 <script src="upup.js"></script>
