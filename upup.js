@@ -3,242 +3,183 @@
  * 举牌小人生成器
  * 使用方法 new Upup(param) 即可，支持可输入自动转换 
  */
-(function (window) {
-  function Upup(params) {
-    var self = this
-    self.extend(self.params, params)
-    self.draw()
-    self.init()
+(function (global) {
+  'use strict'
+
+  const DEFAULT_CONFIG = {
+    container: '#app',
+    imagesPath: './images/',
+    imageCount: 41,
+    backgroundColor: '#ffffff',
+    transparent: false,
+    textColor: '#000000',
+    fontSize: 36,
+    padding: 20,
+    gap: 10
   }
-  Upup.prototype = {
-    params: {
-      content: null,  // 渲染最终图片的区块
-      text: null,   // 必传的文字 dom 
-      color: '#42240f',  // 字体的颜色
-      left: 200,  // 第一行图片的整体向右的偏移量，如果设置此参数则图片排列的位置是居左200开始，否则是从0开始
-      bgColor: 'rgba(219, 114, 40, 1)',  // 背景的颜色
-      imgObj: {
-        imgLD: 35,  // 小人图向左的偏移量
-        imgBD: 20,  // 小人图向下的偏移量
-        left: 45, // 小人图整体阶级向左的偏移量
-      },
-      textObj: {
-        width: 40,  // 文字画布的宽度
-        height: 40, // 文字画布的高度
-        textRD: 20, // 文字向右的偏移量
-        textBD: 10 // 文字向下的偏移量
-      },
-      isTranspant: false,   // 是否透明背景
-      isShowLogo: true,
-      logoObj: {
-        src: 'https://ss3.bdstatic.com/70cFv8Sh_Q1YnxGkpoWK1HF6hhy/it/u=3835858067,383604916&fm=26&gp=0.jpg',
-        width: 40,
-        height: 40,
-        x: 0,
-        y: 0
-      },
-      siteObj: {
-        url: 'luszy.com',
-        x: 0,
-        y: 50
-      }
-    },
-    init: function (callback) {
-      var self = this
-      var text = self.params.text.value.split('\n')
-      var canvas = document.createElement('canvas')
-      var ctx = canvas.getContext('2d');
-      canvas.width = 1920;
-      canvas.height = 980;
 
-      // 给画布填充颜色
-      if (!self.params.isTranspant) {
-        ctx.fillStyle = self.params.bgColor;
-      } else {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+  class UPUP {
+    constructor(options = {}) {
+      this.config = {
+        ...DEFAULT_CONFIG,
+        ...options
       }
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      var arr = []
-      var len = 0
-      var imgWidthAndHeight = []
-      text.forEach(function (item, i) {
-        // 1. 加载图片资源
-        self.loadImg(item.split(''), function (res) {
-          // 关键代码：如果使用了 arr.push(res) 回导致输出的索引跟填写的文字顺序不一致的情况
-          // 所以直接使用赋值的方式，固定图片数组输出的位置，这里要保证输出的顺序，
-          // 其他情况不需要就可以使用push， 下面的获取图片同理
-          arr[i] = res;
-          // 保证所有的图片都已加载完成，并且数据都有
-          if (++len == text.length) {
-            len = 0
-            arr.forEach(function (item, index) {
-              var distance = arr.length - index - 1
-              item.forEach(function (its, idx) {
-                var it = its.image
-                var tx = its.text
-                if (tx === ' ' && ++len) return
-                if (self.params.left) {
-                  var x = self.params.left + ((idx * it.naturalWidth) - (idx * self.params.imgObj.imgLD)) - (index * self.params.imgObj.left)
-                } else {
-                  var x = ((idx * it.naturalWidth) - (idx * self.params.imgObj.imgLD)) + (distance * 45)
-                }
-                var y = (index * (it.naturalHeight * .3)) + (idx * self.params.imgObj.imgBD)
-                // 把图片的宽高保存
-                imgWidthAndHeight.push({
-                  x: x + it.naturalWidth,
-                  y: y + it.naturalHeight
-                })
-                // 2. 在canvas 上画出所有的图片
-                ctx.drawImage(it, x, y, it.naturalWidth, it.naturalHeight)
-                // 3. 在canvas 上画出所有的文字
-                self.drawText(
-                  tx,
-                  self.params.textObj.width,
-                  self.params.textObj.height,
-                  function (img) {
-                    ctx.drawImage(
-                      img,
-                      x + self.params.textObj.textRD,
-                      y + self.params.textObj.textBD
-                    );
-                    // 4. 等所有的文字画完之后再输出图片
-                    if (++len === text.join('').length) {
-                      var width = Math.max.apply(null, imgWidthAndHeight.map(function(item) {
-                        return item.x
-                      }))
-                      var height = Math.max.apply(null, imgWidthAndHeight.map(function(item) {
-                        return item.y
-                      }))
-                      // 改变大小前用getImageData保存图像
-                      var copyCanvas = ctx.getImageData(0, 0, canvas.width, canvas.height)
-                      canvas.width = width;
-                      canvas.height = height;
-                      // 改变了宽高之后再重新设置之前的图像
-                      ctx.putImageData(copyCanvas, 0, 0);
-                      // 设置头像之后再输出图片
-                      self.loadLogo(ctx, function() {
-                        var dataImg = new Image();
-                        dataImg.src = canvas.toDataURL('image/png');
-                        callback(dataImg);
-                      })
-                    }
-                  }
-                )
-              })
-            })
-          }
-        })
-      })
-    },
-    draw: function () {
-      var self = this
-      this.addEvent(this.params.text, 'input', function (e) {
-        self.params.text.innerHTML = e.target.value
-        self.refresh()
-        // self.throttleDelay(self.refresh.bind(self), 500)
-      })
-    },
-    refresh: function(params) {
-      var self = this
-      this.extend(this.params, params)
-      this.init(function (img) {
-        self.params.content.innerHTML = ''
-        self.params.content.appendChild(img)
-      })
-    },
-    loadLogo: function(ctx, callback) {
-      // 设置默认logo标志
-      var self = this
-      if (!self.params.isShowLogo) {
-        callback()
-        return
+      this.container = this.resolveContainer(this.config.container)
+
+      this.imageCache = new Map()
+      this.canvas = document.createElement('canvas')
+      this.ctx = this.canvas.getContext('2d')
+
+      this.container.appendChild(this.canvas)
+    }
+
+    resolveContainer(container) {
+      if (typeof container === 'string') {
+        container = document.querySelector(container)
       }
-      var logoImg = new Image()
-      logoImg.setAttribute('crossOrigin', 'Anonymous')
-      logoImg.onload = function () {
-        ctx.drawImage(
-          logoImg,
-          self.params.logoObj.x,
-          self.params.logoObj.y,
-          self.params.logoObj.width,
-          self.params.logoObj.height
-        )
-        // 添加默认的站点
-        ctx.fillText(self.params.siteObj.url, self.params.siteObj.x, self.params.siteObj.y);
-        callback()
+
+      if (!container) {
+        throw new Error('UPUP: 找不到渲染容器')
       }
-      if (self.params.logoObj.src) {
-        logoImg.src = self.params.logoObj.src
+
+      return container
+    }
+
+    // 加载图片，并缓存加载结果
+    loadImage(src) {
+      if (this.imageCache.has(src)) {
+        return this.imageCache.get(src)
       }
-    },
-    loadImg: function(urls, callback) {
-      var len = 0
-      var imgs = []
-      urls.forEach(function (item, index) {
-        var image = new Image()
-        var url = `./images/QP4a5rvW_${Math.floor(Math.random() * 40)}.png`
-        image.onload = function () {
-          imgs[index] = {
-            image: image,
-            text: item
-          }
-          if (++len === urls.length) {
-            callback(imgs)
-          }
+
+      const promise = new Promise((resolve, reject) => {
+        const image = new Image()
+
+        image.onload = () => resolve(image)
+        image.onerror = () => {
+          this.imageCache.delete(src)
+          reject(new Error(`图片加载失败: ${src}`))
         }
-        image.src = url
+
+        image.src = src
       })
-    },
-    drawText: function(word, width, height, callback) {
-      var canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-      var ctx = canvas.getContext('2d')
 
-      ctx.transform(0.766044, 0.3, -0.742788, 0.766044, 20, 0)
-      ctx.font = '30px SimHei'
-      ctx.textAlign = 'center'
-      ctx.fillStyle = this.params.color
-      ctx.fillText(word, 14, 28)
+      this.imageCache.set(src, promise)
+      return promise
+    }
 
-      // 这里本来设置是返回的 getImageData 的，但是发现在使用canvas 
-      // 堆叠到另一个canvas中背景一直设置不到的透明
-      // 因为另一个的canvas中添加了一个图片，而图片是颜色的，会导致文字的canvas一直是有底色的
-      // 没办法，索性使用导出图片的方式保证透明，如果是canvas就不能保证是透明
-      var img = new Image();
-      img.onload = function () {
-        callback(img)
+    // 加载全部小人素材
+    async loadImages() {
+      const tasks = []
+
+      for (let i = 0; i < this.config.imageCount; i++) {
+        const src = `${this.config.imagesPath}QP4a5rvW_${i}.png`
+        tasks.push(this.loadImage(src))
       }
-      img.src = canvas.toDataURL('image/png');
-    },
-    // 简单的节流，放置输入过快渲染出错
-    throttleDelay: function(func, delay) {
-      var timer = null;
-      if (!timer) { 
-        timer = setTimeout(function() {
-          func.call(func)
-          timer = null;
-        }, delay)
+
+      const results = await Promise.allSettled(tasks)
+
+      this.images = results.filter((item) => item.status === 'fulfilled').map((item) => item.value)
+
+      if (this.images.length === 0) {
+        throw new Error('UPUP: 没有成功加载任何小人素材')
       }
-    },
-    addEvent: function (elm, type, fn) {
-      if (window.attachEvent) {
-        elm.attachEvent("on" + type, fn);
-      } else if (window.addEventListener) {
-        elm.addEventListener(type, fn, false);
-      } else {
-        elm["on" + type] = fn;
+
+      return this.images
+    }
+
+    // 绘制文字
+    drawText(text, x, y) {
+      const { ctx, config } = this
+
+      ctx.fillStyle = config.textColor
+      ctx.font = `${config.fontSize}px sans-serif`
+      ctx.textBaseline = 'middle'
+
+      ctx.fillText(text, x, y)
+    }
+
+    // 生成图片
+    async render(text) {
+      if (!this.images || this.images.length === 0) {
+        await this.loadImages()
       }
-    },
-    extend: function (a, b) {
-      for (var key in b) {
-        if (b.hasOwnProperty(key)) {
-          a[key] = b[key];
+
+      const { ctx, canvas, config } = this
+      const characters = Array.from(String(text))
+
+      const selectedImages = characters.map(() => {
+        const index = Math.floor(Math.random() * this.images.length)
+
+        return this.images[index]
+      })
+
+      const maxHeight = Math.max(...selectedImages.map((image) => image.height))
+
+      const totalWidth =
+        selectedImages.reduce((sum, image) => sum + image.width, 0) +
+        Math.max(0, characters.length - 1) * config.gap
+
+      canvas.width = totalWidth + config.padding * 2
+      canvas.height = maxHeight + config.padding * 2
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+      if (!config.transparent) {
+        ctx.fillStyle = config.backgroundColor
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+      }
+
+      let x = config.padding
+
+      for (let i = 0; i < characters.length; i++) {
+        const image = selectedImages[i]
+
+        const y = config.padding + (maxHeight - image.height)
+
+        ctx.drawImage(image, x, y)
+
+        this.drawText(characters[i], x + image.width, config.padding + maxHeight / 2)
+
+        x += image.width + config.gap
+      }
+
+      return canvas
+    }
+
+    // 下载 PNG
+    download(filename = 'upup.png') {
+      this.canvas.toBlob((blob) => {
+        if (!blob) {
+          console.error('UPUP: PNG 导出失败')
+          return
         }
-      }
-      return a;
+
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+
+        link.href = url
+        link.download = filename
+        link.click()
+
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+      }, 'image/png')
+    }
+
+    // 修改配置
+    setConfig(options = {}) {
+      Object.assign(this.config, options)
+      return this
+    }
+
+    // 销毁实例
+    destroy() {
+      this.canvas.remove()
+      this.imageCache.clear()
+      this.images = null
     }
   }
-  window.Upup = Upup
+
+  // 暴露全局构造函数
+  global.UPUP = UPUP
 })(window)
